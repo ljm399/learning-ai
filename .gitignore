@@ -9,7 +9,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-ppt和源码/
 
 # runtime data
 pids
@@ -29,6 +28,7 @@ dist/
 keys/private.key
 keys/public.key
 
+/ppt和源码
 
 # environment files
 .env
