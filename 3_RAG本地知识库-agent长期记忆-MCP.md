@@ -800,25 +800,22 @@ MCP SDK 提供的是 **协议实现 + 多种 transport**。
 - **更贴近“本地工具”模型**：本 demo 的 tool 会调用本机能力（例如 `exec()` 打开本地 Postman）。这种能力本质上依赖操作系统权限，使用 stdio 时通常只暴露给“启动该 server 的本机 client 进程”，安全边界更清晰。
 - **进程模型更常见**：很多 MCP client（IDE/桌面应用）会以“拉起一个 server 子进程 + stdin/stdout 通信”的方式集成工具，这与 stdio transport 的设计一致。
 
-#### 何时用 HTTP / SSE / streamable http（什么时候不该用 stdio）
+#### 何时用  SSE / streamable http（什么时候不该用 stdio）
 
 - **跨机器/跨容器部署**：server 不在本机运行（内网服务、容器、K8s），client 需要通过网络访问时，用 HTTP 类 transport 更自然。
 - **多客户端共享同一套工具服务**：希望多个 client 复用同一个 MCP server（统一工具平台/网关），HTTP/SSE 更方便做连接管理与统一入口。
 - **需要接入网关与可观测能力**：鉴权、审计、限流、灰度、负载均衡、指标与日志等，HTTP 生态更成熟。
 
-#### streamable http vs SSE 的选择建议（工程化视角）
-
-- **SSE**：适合“服务端持续推送”的流式返回，浏览器/网关支持成熟；缺点是通常需要额外的会话/连接管理，且上行请求仍要配合普通 HTTP。
-- **streamable http**：更倾向于“以一个统一入口保持会话/长连接语义”，协议层面更贴近 MCP 的交互模型；但对基础设施与中间件的兼容性、实现复杂度要求更高。
-
-图片里提到两类 HTTP 相关方案：
+#### streamable http vs SSE 的选择建议
 
 - **streamable http**：较新的方案，倾向于“建立长连接后，后续调用都走同一个接口”（你图里示意为 `/api` 这样的统一入口）。
 - **SSE**：更早期/更常见的一类方案，通常会先建立 SSE 长连接（返回一个 endpoint / session 信息），后续再用这个 endpoint 去拿流式结果。
+  - SSE是单向的，即客户端不能发送数据给服务器，而是客户端会通过普通的http发送数据给后端，后面 笔记4 里面有详细解释
+
 
 但需要注意：
 
-- **本项目 `mcpdemo` 没有实现 HTTP/streamable http/SSE 的服务端代码**，仅演示了 stdio。
+- **本项目 `mcpdemo` 没有实现 streamable http/SSE 的服务端代码**，仅演示了 stdio。
 
 
 

@@ -28,11 +28,11 @@ dist/
 keys/private.key
 keys/public.key
 
-/ppt和源码
-
 # environment files
 .env
 .env.*
+
+/ppt和源码
 
 # cache
 .cache/
