@@ -3,6 +3,44 @@
 
 ## 1. 在 MCP Server 端注册 Function Tool
 
+### 代码
+
+```js
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
+import z from "zod"
+
+app.post('/mcp', async (req, res) => {
+    const server = new McpServer({
+        name: "mymcp",
+        version: "1.0.0"
+    })
+
+    server.registerTool("help_dp", {
+        type: "function",
+        description: "当用户需要订票的时候调用此工具",
+        inputSchema: {
+            city: z.string().describe("用户要去的城市").optional()
+        },
+    }, async (arg) => {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `去往${arg.city}的票，订购成功`
+                }
+            ],
+            a: 123,
+            b: 23
+        }
+    })
+
+    const transport = new StreamableHTTPServerTransport()
+    await server.connect(transport)
+    await transport.handleRequest(req, res, req.body)
+});
+```
+
 ### 解释
 
 MCP 服务端通过 `McpServer` 对象注册工具（`registerTool`）。
@@ -47,47 +85,7 @@ MCP 服务端通过 `McpServer` 对象注册工具（`registerTool`）。
   - 返回的 `content[].text` 用自然语言描述清楚结果
   - 必要时额外带少量结构化字段给程序使用
 
-### 代码
-
-来自 `ppt和源码/2-8 MCP提供Function tools/code/server/mcpServer.js`：
-
-```js
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import z from "zod"
-
-app.post('/mcp', async (req, res) => {
-    const server = new McpServer({
-        name: "mymcp",
-        version: "1.0.0"
-    })
-
-    server.registerTool("help_dp", {
-        type: "function",
-        description: "当用户需要订票的时候调用此工具",
-        inputSchema: {
-            city: z.string().describe("用户要去的城市").optional()
-        },
-    }, async (arg) => {
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `去往${arg.city}的票，订购成功`
-                }
-            ],
-            a: 123,
-            b: 23
-        }
-    })
-
-    const transport = new StreamableHTTPServerTransport()
-    await server.connect(transport)
-    await transport.handleRequest(req, res, req.body)
-});
-```
-
-另一个 MCP 服务（第二个端口）来自 `server/mcpServer2.js`，注册了 `open_safe` 工具。
+#### 另一个 MCP 服务（第二个端口）来自 `server/mcpServer2.js`，注册了 `open_safe` 工具。
 
 
 ## 2. 在业务服务里配置多个 MCP 服务地址
@@ -124,8 +122,6 @@ MCP Client 通过 `Client` + `StreamableHTTPClientTransport` 连接 MCP Server�
 
 - `client.listTools()` 获取服务端暴露的工具列表
 - `client.callTool(...)` 执行指定工具
-
-图片里的结论：**调用工具只需要客户端调用 `callTool`**。
 
 另外需要注意：
 
@@ -269,6 +265,103 @@ export async function linkMcpAndListTool() {
 ```js
 const mcpResult = await linkMcpAndListTool()
 ```
+
+
+
+## mcp实战（windsurf里面配置本地mcp）
+
+### 配置function tool
+
+#### 若不是本地工具，而是远程如sse或http则不用配置function tool，直接执行下一步配置mcp就行，各个agent如windsurf会提示你如何配置mcp
+
+```js
+#!/usr/bin/env node
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { parseOffice } from 'officeparser';
+import { z } from 'zod';
+
+// 创建 Node.js 版的 PPTX-Parser MCP 服务
+const server = new McpServer({
+    name: "PPTX-Parser",
+    version: "1.0.0"
+});
+
+// 注册 read_pptx 工具，使用标准 inputSchema
+server.registerTool("read_pptx", {
+    type: "function",
+    description: "读取并解析本地 PPTX 文件的文字内容",
+    inputSchema: {
+        file_path: z.string().describe("本地 PPTX 文件的绝对路径")
+    }
+}, async (arg) => {
+    try {
+        console.error("MCP read_pptx received args:", JSON.stringify(arg));
+        
+        const file_path = arg.file_path;
+        
+        if (!file_path) {
+            throw new Error(`未提供有效的文件路径参数 file_path，接收到的参数为: ${JSON.stringify(arg)}`);
+        }
+
+        // 使用 officeparser 的 parseOffice 在本地解析 PPTX 二进制文件
+        const res = await parseOffice(file_path);
+        const text = typeof res.toText === 'function' ? res.toText() : JSON.stringify(res);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: text
+                }
+            ]
+        };
+    } catch (error) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: `解析 PPT 失败: ${error.message}`
+                }
+            ]
+        };
+    }
+});
+
+// 启动基于标准输入输出 (stdio) 的传输
+const transport = new StdioServerTransport();
+await server.connect(transport);
+
+```
+
+- 还要配置package.json以及安装node
+  - 所以先执行npm init
+
+### 将function tool配置到windsurf里面的mcp
+
+```json
+{
+  "mcpServers": {
+    "pptx-parser": {
+      "command": "node",
+      "args": [
+        "c:/Users/MJL/Desktop/ai学习/mcp-servers/parsePPT/ppt_reader.js"
+      ],
+      "disabled": false
+    }
+  }
+}
+```
+
+
+
+### **Python 只需要一个单文件就能跑通**，而 Node.js 需要配置 package.json那些
+
+| 语言        | 依赖安装在哪里？                | 需要本地配置文件吗？         | 优点                                                         | 缺点                                                         |
+| :---------- | :------------------------------ | :--------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
+| **Python**  | **全局** / 虚拟环境共享路径     | **不需要**，直接写单文件运行 | 极其轻量，写小工具、小脚本体验极佳，即写即用。               | 如果电脑里有多个项目用不同版本的同一个库，容易版本冲突（所以需要用虚拟环境隔离）。 |
+| **Node.js** | **本地**项目目录的 node_modules | **需要** package.json        | 项目隔离性极好，每个项目有自己独立的版本，拷贝项目时连同 package.json 一起带走即可。 | 新建一个小脚本也必须先初始化环境（`npm init`、`npm install`），显得有些“重”。 |
+
 
 
 ## 6. 把 MCP tools 与“本地工具”一起提供给大模型
@@ -1310,6 +1403,6 @@ console.log(res2);
 
 
 
-# 调用第三方MCP
+# 
 
-- LLM大模型是不能联网的
+# LLM大模型是不能联网的

@@ -9,6 +9,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+ppt和源码/
+mcp-servers/
+
 
 # runtime data
 pids
@@ -32,7 +35,6 @@ keys/public.key
 .env
 .env.*
 
-/ppt和源码
 
 # cache
 .cache/
