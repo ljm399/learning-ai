@@ -210,22 +210,47 @@ LLM：Large Language Model（大语言模型）。
           ```
 
       - 方式二：`.env` 文件（开发最常用）
-        - 在项目根目录创建 `.env`：
-
-          ```bash
-          DASHSCOPE_API_KEY=sk-xxx
-          ```
-
         - 安装并加载 `dotenv`（要在读取 `process.env` 之前加载）：
 
           ```bash
           npm i dotenv
           ```
 
-          ```js
-          require("dotenv").config()
-          apiKey: process.env.DASHSCOPE_API_KEY
+          推荐两种使用方式。
+
+          方式一：安装并在入口文件加载：
+        
           ```
+          npm install dotenv
+          ```
+        
+          在 `app.js` 最顶部：
+        
+          ```
+          import "dotenv/config";
+          ```
+        
+          然后：
+        
+          ```
+          const apiKey = process.env.DEEPSEEK_API_KEY;
+          ```
+        
+          `.env`：
+        
+          ```
+          DEEPSEEK_API_KEY=你的密钥
+          ```
+        
+          方式二：Node.js 20.6+ 直接启动：
+        
+          ```
+          node --env-file=.env app.js
+          ```
+        
+          这种方式不需要安装或导入 `dotenv`。
+        
+          注意：`dotenv` 必须在读取 `process.env.DEEPSEEK_API_KEY` 之前加载。
         
         - 注意：`.env` 通常要加入 `.gitignore`，避免把 key 提交到仓库
       - 系统级环境变量（长期生效）
