@@ -864,6 +864,30 @@ export function sendChatMessage(data, onChunk) {
 
 这里用的是 `fetchEventSource`，也就是 SSE 流式请求，不是普通的一次性 `axios.post`。
 
+##### 流式接口则是“一次请求，陆续收到多条数据”。例如同一个回答依次到达：
+
+```
+{ id: 10, content: "你好" }
+{ id: 10, content: "，我是" }
+{ id: 10, content: "你的助手。" }
+```
+
+##### 解释里面的onChunk,onChunk?.(chunk)和onmessage
+
+`onChunk?.(chunk)`：**它调用了你传进去的函数即onChunk，并把这里的后端返回的 `chunk` 作为实参传进去。**
+
+ `?.` 表示只有提供了这个回调才调用它。
+
+onmessage
+
+- 它也是回调函数，原理一样
+- 后端发送一条 SSE 消息
+    → 库调用 onmessage(msg)
+    → chat.js 从 msg.data 解析出 chunk
+    → chat.js 调用 onChunk(chunk)
+    → 页面里的箭头函数执行，更新 messages
+    → Vue 更新页面
+
 ### 6.4 问题立刻加入前端历史记录数组
 
 对应源码：`app/src/view/ChatView.vue`
@@ -922,7 +946,7 @@ if (existing) {
 1. 借助 `checkpointer` 做存储和历史读取。
 2. 把逻辑写在节点执行逻辑里。
 
-这套源码实际采用的是第二种，也就是把历史读写直接写进节点逻辑里，而不是正式接入 `checkpointer`。
+#### **要记住“为什么要保存历史、保存在哪里、何时读取、消息格式是什么”，不需要背 `saveResult` 和 `updateHistoryMessage` 的具体代码。**
 
 ### 7.1 这套源码里实际使用的是“节点里自己读写历史”
 
@@ -1048,7 +1072,51 @@ const app = graph.compile({
 - 课件介绍了 `checkpointer` 方案。
 - 但这套实战源码最终选的是“节点里手动读写历史”的方案，更直观，也更可控。
 
+
+
+### checkpointer使用另一个案例
+
+### 使用 `checkpointer`
+
+`checkpointer` 是 LangGraph 提供的状态持久化机制。它保存的是图的状态，例如：
+
+```
+{
+  messages: [...]
+}
+```
+
+调用时通常通过会话标识区分不同对话：
+
+```
+const config = {
+  configurable: {
+    thread_id: sessionId
+  }
+};
+
+await graph.invoke(input, config);
+```
+
+下一次使用相同的 `thread_id`，框架就可以恢复之前的状态。
+
+它更像是：
+
+> “请框架替我保存和恢复运行状态。”
+
+适合：
+
+- LangGraph 多节点流程；
+- 多轮对话；
+- 需要暂停、恢复、人工介入；
+- 需要保存中间状态；
+- 希望少写持久化代码。
+
 ---
+
+
+
+
 
 ## 8. 定义工具
 
@@ -1155,6 +1223,8 @@ const toolNode = new ToolNode(tools);
 这样整条链路才完整：
 
 **先定义工具 -> 再导出工具数组 -> 再绑定给模型 -> 再放进 LangGraph 的 `ToolNode` 节点里执行。**
+
+
 
 ## 这一节可以再压成一句话
 
@@ -1417,18 +1487,7 @@ PPT 后面专门讨论了一个问题：
 - 小而高频、又不能丢步骤的流程，适合直接进系统上下文
 - 大而低频、可以延后拿的资料，适合工具加载或 RAG
 
-## 九、这份 `system.md` 在这个项目里具体起什么作用
-
-结合 PPT 和源码，可以把这份 `system.md` 的作用总结成 4 点：
-
-1. 定义 AI 导购的角色
-2. 限制 AI 的行为边界
-3. 统一 AI 的输出风格和流程规范
-4. 给模型补充这个业务场景下必须长期携带的规则
-
-它不是某个用户的一次问题，也不是某个会话的历史，而是整个应用共享的一层“系统规则”。
-
-## 十、一句话总结
+## 九、一句话总结
 
 系统上下文这一节的本质是：
 
