@@ -1,0 +1,15 @@
+{
+  "model": "doubao-seedream-4-5-251128",
+  "created": 1779001495,
+  "data": [
+    {
+      "url": "https://ark-content-generation-v2-cn-beijing.tos-cn-beijing.volces.com/doubao-seedream-4-5/021779001467757edfe17761d7699bd2e54408390fbabd1b09675_0.jpeg",
+      "size": "1568x2784"
+    }
+  ],
+  "usage": {
+    "generated_images": 1,
+    "output_tokens": 17052,
+    "total_tokens": 17052
+  }
+}

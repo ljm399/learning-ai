@@ -1,0 +1,5 @@
+export { default as A2Horizontal } from './A2Horizontal.vue/index.js'
+export { default as A2Vertical } from './A2Vertical.vue/index.js'
+export { default as A2Input } from './A2Input.vue/index.js'
+export { default as A2Button } from './A2Button.vue/index.js'
+export { default as A2Text } from './A2Text.vue/index.js'

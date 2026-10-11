@@ -1,0 +1,23 @@
+[
+    {
+        "productId": 1,
+        "productName": "波司登极寒系列羽绒服 - 90%鹅绒防风保暖",
+        "productImage": "https://gw.alicdn.com/bao/uploaded/i4/4059131702/O1CN01fXyWjQ1ORZ6c5si7X_!!4059131702.jpg_.webp",
+        "payPrice": 1299,
+        "orderDate": "2026-05-15"
+    },
+    {
+        "productId": 2,
+        "productName": "北面1996复古羽绒服 - 轻量透气拒水保暖",
+        "productImage": "https://gw.alicdn.com/bao/uploaded/i3/2211158325992/O1CN01YaPVBc1u8OKTM1Ijn_!!2211158325992.jpg_.webp",
+        "payPrice": 1899,
+        "orderDate": "2026-05-03"
+    },
+    {
+        "productId": 3,
+        "productName": "雪中飞短款修身羽绒服 - 时尚轻薄日常百搭",
+        "productImage": "https://gw.alicdn.com/bao/uploaded/i1/2217778370121/O1CN01FNPiNA1ClSz2XDLlN_!!2217778370121.jpg_.webp",
+        "payPrice": 399,
+        "orderDate": "2026-04-10"
+    }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "推荐一个简洁的鞋子"
+  },
+  {
+    "role": "assistant",
+    "content": {
+      "cardName": "login"
+    }
+  }
+]

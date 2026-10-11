@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    {
+      "name": "custom_llm",
+      "params": {
+        "systemPrompt": "你是一个专业的服装推荐顾问，当用户需求不明确时，请友好地引导用户提供更多信息。",
+        "userPromptTemplate": "用户的问题是：可以\n\n请友好回复用户，并询问他想找什么类型的服装、风格、场合或预算。"
+      },
+      "frontendHint": "正在理解您的需求..."
+    }
+  ]
+}

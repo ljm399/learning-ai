@@ -1,0 +1,87 @@
+{
+    "u0011791096621057": {
+        "title": "新对话",
+        "messages": [
+            {
+                "role": "user",
+                "content": "我要退货",
+                "id": "7098417c-4879-49dc-928d-900467d2dc69"
+            },
+            {
+                "role": "assistant",
+                "content": "好嘞！退货这事儿包在我身上～ 让我先帮您把最近一年的订单翻出来看看。",
+                "id": "04d01e27-286d-4b78-babc-f43048e3ade4",
+                "tool_calls": [
+                    {
+                        "id": "call_00_OLQNaJhOgoNcW3sTQ8Wj6406",
+                        "type": "function",
+                        "function": {
+                            "name": "get_orders",
+                            "arguments": "{}"
+                        }
+                    }
+                ]
+            },
+            {
+                "role": "tool",
+                "content": "[{\"productId\":1,\"productName\":\"波司登极寒系列羽绒服 - 90%鹅绒防风保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i4/4059131702/O1CN01fXyWjQ1ORZ6c5si7X_!!4059131702.jpg_.webp\",\"payPrice\":1299,\"orderDate\":\"2026-05-15\"},{\"productId\":2,\"productName\":\"北面1996复古羽绒服 - 轻量透气拒水保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i3/2211158325992/O1CN01YaPVBc1u8OKTM1Ijn_!!2211158325992.jpg_.webp\",\"payPrice\":1899,\"orderDate\":\"2026-05-03\"},{\"productId\":3,\"productName\":\"雪中飞短款修身羽绒服 - 时尚轻薄日常百搭\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i1/2217778370121/O1CN01FNPiNA1ClSz2XDLlN_!!2217778370121.jpg_.webp\",\"payPrice\":399,\"orderDate\":\"2026-04-10\"}]",
+                "tool_call_id": "call_00_OLQNaJhOgoNcW3sTQ8Wj6406",
+                "id": "ab10e291-aaf0-4769-9459-4d1b36088c98"
+            },
+            {
+                "role": "assistant",
+                "content": "您的订单一共有这么几笔，我这就给您列出来看看～",
+                "id": "d9107096-b593-4843-8356-2393d9aaa461",
+                "tool_calls": [
+                    {
+                        "id": "call_00_qu1M2NGEFPnK8HOlgy795887",
+                        "type": "function",
+                        "function": {
+                            "name": "showOrder",
+                            "arguments": "{\"order\":{\"orderId\":1,\"productId\":1,\"productName\":\"波司登极寒系列羽绒服 - 90%鹅绒防风保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i4/4059131702/O1CN01fXyWjQ1ORZ6c5si7X_!!4059131702.jpg_.webp\",\"payPrice\":1299,\"orderDate\":\"2026-05-15\"}}"
+                        }
+                    },
+                    {
+                        "id": "call_01_JDXsktEkneL1kB7SDDcr2101",
+                        "type": "function",
+                        "function": {
+                            "name": "showOrder",
+                            "arguments": "{\"order\":{\"orderId\":2,\"productId\":2,\"productName\":\"北面1996复古羽绒服 - 轻量透气拒水保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i3/2211158325992/O1CN01YaPVBc1u8OKTM1Ijn_!!2211158325992.jpg_.webp\",\"payPrice\":1899,\"orderDate\":\"2026-05-03\"}}"
+                        }
+                    },
+                    {
+                        "id": "call_02_COCyQmw1E3e2oEUfEbCJ1894",
+                        "type": "function",
+                        "function": {
+                            "name": "showOrder",
+                            "arguments": "{\"order\":{\"orderId\":3,\"productId\":3,\"productName\":\"雪中飞短款修身羽绒服 - 时尚轻薄日常百搭\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i1/2217778370121/O1CN01FNPiNA1ClSz2XDLlN_!!2217778370121.jpg_.webp\",\"payPrice\":399,\"orderDate\":\"2026-04-10\"}}"
+                        }
+                    }
+                ]
+            },
+            {
+                "role": "tool",
+                "content": "{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":1,\"productId\":1,\"productName\":\"波司登极寒系列羽绒服 - 90%鹅绒防风保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i4/4059131702/O1CN01fXyWjQ1ORZ6c5si7X_!!4059131702.jpg_.webp\",\"payPrice\":1299,\"orderDate\":\"2026-05-15\"}}",
+                "tool_call_id": "call_00_qu1M2NGEFPnK8HOlgy795887",
+                "id": "d4d6f77f-7643-46a5-9b61-dc8e4abfdcca"
+            },
+            {
+                "role": "tool",
+                "content": "{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":2,\"productId\":2,\"productName\":\"北面1996复古羽绒服 - 轻量透气拒水保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i3/2211158325992/O1CN01YaPVBc1u8OKTM1Ijn_!!2211158325992.jpg_.webp\",\"payPrice\":1899,\"orderDate\":\"2026-05-03\"}}",
+                "tool_call_id": "call_01_JDXsktEkneL1kB7SDDcr2101",
+                "id": "241c9072-61ce-451c-b388-93b4d70cd67a"
+            },
+            {
+                "role": "tool",
+                "content": "{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":3,\"productId\":3,\"productName\":\"雪中飞短款修身羽绒服 - 时尚轻薄日常百搭\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i1/2217778370121/O1CN01FNPiNA1ClSz2XDLlN_!!2217778370121.jpg_.webp\",\"payPrice\":399,\"orderDate\":\"2026-04-10\"}}",
+                "tool_call_id": "call_02_COCyQmw1E3e2oEUfEbCJ1894",
+                "id": "60db29cd-df88-48c9-9075-81e9bcc93b99"
+            },
+            {
+                "role": "assistant",
+                "content": "找到啦！这是您最近一年的订单，请您瞄一眼，看看要退的是哪一件～\n\n```json\n{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":1,\"productId\":1,\"productName\":\"波司登极寒系列羽绒服 - 90%鹅绒防风保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i4/4059131702/O1CN01fXyWjQ1ORZ6c5si7X_!!4059131702.jpg_.webp\",\"payPrice\":1299,\"orderDate\":\"2026-05-15\"}}\n```\n\n```json\n{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":2,\"productId\":2,\"productName\":\"北面1996复古羽绒服 - 轻量透气拒水保暖\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i3/2211158325992/O1CN01YaPVBc1u8OKTM1Ijn_!!2211158325992.jpg_.webp\",\"payPrice\":1899,\"orderDate\":\"2026-05-03\"}}\n```\n\n```json\n{\"type\":\"card\",\"name\":\"orderCard\",\"data\":{\"orderId\":3,\"productId\":3,\"productName\":\"雪中飞短款修身羽绒服 - 时尚轻薄日常百搭\",\"productImage\":\"https://gw.alicdn.com/bao/uploaded/i1/2217778370121/O1CN01FNPiNA1ClSz2XDLlN_!!2217778370121.jpg_.webp\",\"payPrice\":399,\"orderDate\":\"2026-04-10\"}}\n```\n\n您看中哪一件要退，把**订单号（productId）**告诉我就成，顺便说说退货的理由哈～ 我好帮您把这事儿妥妥办了！",
+                "id": "6dfa9db9-ce4c-491c-a2bb-0ecd9ddd65ca"
+            }
+        ]
+    }
+}
