@@ -274,6 +274,8 @@ const mcpResult = await linkMcpAndListTool()
 
 #### 若不是本地工具，而是远程如sse或http则不用配置function tool，直接执行下一步配置mcp就行，各个agent如windsurf会提示你如何配置mcp
 
+- 下面是本地工具：读取ppt
+
 ```js
 #!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -807,7 +809,7 @@ fetchEventSource("http://localhost:3000/llm", {
     - 对话记录
     - tools列表
 
-### 提供资源
+## 提供资源
 
 
 ## 1. Resources 是什么（MCP 提供“可读的外部上下文”）
@@ -906,13 +908,30 @@ Client 侧一般先 `listResources()` 看有哪些资源，再用 `readResource(
 
 ```js
  const resouceList = await client.listResources();
- console.log(resouceList) // 这里有text://gszd.txt'，下面就可以读出来
+ console.log(resouceList) // 这里要是有text://gszd.txt'，下面就可以读出来；图片类型'image://pic1.png
  const result = await client.readResource({
-     uri: 'text://gszd.txt'
+     uri: 'image://pic1.png'
  });
 console.log(result)
 ```
 
+> `image://pic1.png` 是文件系统里的路径，不是。 它只是一个字符串 ID，**解析规则完全由你 handler 里面的代码说了算**。
+
+##### 这个 id（uri）怎么来的？
+
+✅ **人工定义，注册的时候硬编码写进去** 流程：
+
+1. 你想好：我要对外暴露一张图片资源，给它起一个唯一标识 `image://pic1.png`
+2. 在 `registerResource` 的第二个参数填入这个 uri
+3. 同时你自己写转换逻辑：`image://xxx` → 映射到服务器本地文件 `./img/xxx`
+4. 客户端调用 `listResources` 的时候，MCP 会把你注册好的这个 uri 返回给客户端
+5. 客户端后续调用 `readResource({uri:"image://pic1.png"})`，把同样这个字符串传回服务端
+6. 服务端 handler 拿到这个 uri，再通过你写的 replace 逻辑翻译成真实文件路径读磁盘
+
+重点区分两件东西，别混在一起
+
+1. **MCP Resource URI（对外标识）**：`image://pic1.png`，给客户端用，MCP 协议识别它，字符串，自己定义。
+2. **服务端本地文件路径（对内真实路径）**：`./img/pic1.png`，node fs 读取磁盘用，只有你的服务端代码知道。
 
 ## 4. 实战建议：Resources 怎么“变成上下文”？
 
@@ -935,7 +954,7 @@ MCP 只是把资源“提供出来”，怎么喂给大模型，通常由你的�
 
 
 
-### 提供模板
+## 提供模板
 
 
 ## 5. Prompts（模板）是什么：MCP 提供“可复用的消息模板”
@@ -1140,26 +1159,56 @@ Prompts（模板）最常见的落点就是前两项：
 而 tools 列表仍然走 tools（function tool）的机制，不由 prompt 解决。
 
 
-## 9. 用“模板 + 资源”做 RAG
 
-### 解释
+------
 
-课件里提到的核心思想是：
+## 9.对比传统 RAG vs MCP 模板 + 资源 RAG
 
-- 公共文档既然都放到了 MCP 上维护，那么“检索与拼上下文”也可以在 MCP 侧统一做。
-- 客户端应用就不需要每个都实现一套 RAG。
+普通 RAG：**客户端自己管向量库、自己写检索代码、自己写 Prompt 模板、自己拼消息、自己调 LLM**。
 
-可以按下面流程理解：
+ MCP + 模板 + 资源 RAG：**检索逻辑、文档资源、Prompt 模板全部下沉到 MCP Server**，客户端变薄，只负责发起调用、最后送消息给大模型。
 
-1. **（离线/定时）把本地文档迁移/同步到 MCP**
-   - 在 MCP server 侧用 `registerResource` 暴露文档资源（或把文档存到 MCP 服务器文件系统/对象存储）。
-2. **应用收到用户提问**
-3. **应用调用 MCP 的“RAG 对话模板”**
-   - 通过 `getPrompt()` 把“检索指令/回答规范/拼接格式”拿到（统一模板）。
-4. **把用户问题发给 MCP（或由 MCP 自己执行检索）**
-   - MCP 侧可以按用户问题去检索资源内容（真实项目里通常会加一个 tool：`search_docs` / `retrieve`）。
-5. **MCP 返回：检索到的相关内容 + 模板化的 messages**
-6. **应用把返回内容作为上下文请求大模型**
+> MCP 本来就有两个原生能力：
+>
+> 1. `Resource`：资源，就是文档、知识库文件、参考资料（只读）
+> 2. `Prompt`：提示模板，就是预先写好的对话模板、回答规范、格式要求
+
+### 传统 RAG（客户端胖）
+
+```
+用户提问
+↓
+【客户端】自己做向量检索 → 拿到片段
+↓
+【客户端】自己写 Prompt 模板：“基于下面资料回答，不能瞎编……”
+↓
+【客户端】自己拼接 system + 用户问题 + 检索片段，组装 messages
+↓
+【客户端】调用 LLM
+```
+
+缺点：
+
+- 每一个前端 / Agent 应用都要复刻一套检索代码、一套知识库、一套 Prompt
+- 改回答规范、改知识库、改检索策略 → 所有客户端全部要改、重新部署
+
+### MCP 模板 + 资源 RAG（客户端瘦）
+
+```
+用户提问
+↓
+【客户端】调用 MCP 的 Prompt（getPrompt），拿到这个RAG任务的标准模板
+↓
+【客户端】把用户问题传给MCP，MCP内部调用 search_docs tool，检索自己托管的 Resource（文档资源）
+↓
+【MCP】把【检索片段 + 套好模板的 messages】一次性返回给客户端
+↓
+【客户端】直接拿着这套 messages 丢给 LLM
+```
+
+✅ 所有 RAG 规则、知识库、模板、检索逻辑都在 MCP Server 统一维护 ✅ 多个应用（IDE 插件、网页 Agent、CLI）共用同一套知识库和回答规范 ✅ 更新文档、改回答要求、调整检索 topk，只改 MCP，客户端不用动
+
+> 重点纠正一个容易混淆的点： MCP 原生 Resource 只是**暴露文档地址 / 文档内容**，MCP 标准本身**不带内置向量检索**。 所以这个方案里一般会自定义一个 MCP Tool，名字叫 `retrieve` / `search_docs`，检索能力是这个 Tool 实现的，Resource 是检索的数据源。
 
 
 
@@ -1350,6 +1399,8 @@ const transport = new StdioClientTransport({
 })
 ```
 
+执行命令是mylocalmcp
+
 也就是说：
 
 - `StdioClientTransport` 会启动一个子进程
@@ -1366,6 +1417,8 @@ const transport = new StdioClientTransport({
   args: ["./stdioMcpServer.js"]
 }) // 即在终端运行 node ./studioMcpServer.js
 ```
+
+- 执行命令是node ./studioMcpServer.js
 
 这两种方式本质都是“启动 server 进程”，只是在工程化上：
 
@@ -1401,8 +1454,158 @@ console.log(res2);
 
 
 
+## 客户端通过StdioClientTransport如何和mcp Server建立联系
+
+一句话总纲： **Stdio 模式下，客户端不是通过端口发 HTTP 请求；而是客户端自己去 fork（启动）一个子进程跑 MCP Server，然后把父子进程的 stdin / stdout 管道当做通信通道，MCP 协议消息就在这个管道里互发。**
+
+我们分步骤串起来，再对应你两段代码：
+
+### 极简笔记版（直接抄）
+
+> Stdio MCP 建立连接流程：
+>
+> 1. 客户端 `StdioClientTransport` 根据 command 启动一个**子进程**运行 MCP Server 脚本；
+> 2. 自动绑定父子进程之间 stdin/stdout 管道作为通信通道；
+> 3. 服务端 `StdioServerTransport` 接管自身进程的 stdin/stdout，监听并回复 MCP 请求；
+> 4. 通道建好之后，`listTools` / `callTool` 的 API 和 HTTP MCP 完全一致，只有底层传输方式不同；
+> 5. HTTP：独立服务 + 端口网络通信；Stdio：Client 拉起 Server 子进程 + 管道进程间通信。
+
+### 下面是详细说明
+
+### 1. 客户端这边做的事（StdioClientTransport）
+
+```
+const transport = new StdioClientTransport({
+    command: "mylocalmcp"
+})
+await client.connect(transport)
+```
+
+`StdioClientTransport` 内部做这几件事：
+
+1. 拿到 
+
+   ```
+   command: "mylocalmcp"
+   ```
+
+   ，调用操作系统接口，
+
+   新建一个子进程
+
+   ，执行命令 
+
+   ```
+   mylocalmcp
+   ```
+
+   - 因为 `package.json` 的 `bin` 配置：`mylocalmcp` → `./stdioMcpServer.js`
+   - 加上脚本头部 `#!/usr/bin/env node`，等价于：`node ./stdioMcpServer.js`
+
+2. 把子进程的 
+
+   stdin（标准输入）、stdout（标准输出）绑成管道
+
+   - 客户端进程写数据 → 塞进子进程的 stdin（发给 MCP Server）
+
+   - 子进程 stdout 输出 → 流回客户端进程（发给 Client）
+
+     > ⚠️ 重点：stderr 是单独的，一般用来打日志，**不走 MCP 协议通道**，不能随便 console.log 协议消息，会炸！
+
+3. 把这个管道包装成 MCP 的 transport，交给 `client.connect`
+
+> 备选写法（不用 bin，调试常用）：
+
+```
+const transport = new StdioClientTransport({
+    command: "node",
+    args: ["./stdioMcpServer.js"]
+})
+```
+
+效果一模一样：启动子进程执行 node + 脚本。
+
+### 2. 服务端这边做的事（StdioServerTransport）
+
+```
+const server = new McpServer({ name: "mylocal", version: "1.0.0" })
+const transport = new StdioServerTransport()
+await server.connect(transport);
+```
+
+当 `mylocalmcp` 命令启动 `stdioMcpServer.js` 这个子进程之后：
+
+1. `StdioServerTransport` 接管这个子进程原生的 `process.stdin` / `process.stdout`
+
+2. 它持续监听 stdin 流：读到二进制/文本 MCP JSON-RPC 请求，交给 McpServer 处理
+
+3. McpServer 路由：比如收到 
+
+   ```
+   listTools
+   ```
+
+    / 
+
+   ```
+   callTool
+   ```
+
+    请求，就去执行对应注册好的 tool
+
+   - 也就是你注册的 `open_postman`
+
+   ```
+   server.registerTool("open_postman", ...)
+   ```
+
+4. 处理完之后，把 MCP 协议的响应消息，通过 stdout 写回管道 → 流回父进程（客户端）
+
+👉 到这里：通道就打通了！父子进程通过 stdin/stdout 管道双向通信。
+
+### 3. 调用 open_postman 的完整链路（一步一步）
+
+```
+【父进程：Client】
+await client.callTool({ name: "open_postman" })
+    ↓
+Client 通过 StdioClientTransport，把 MCP 的 JSON-RPC 请求写入管道 → 子进程 stdin
+    ↓
+【子进程：MCP Server】
+StdioServerTransport 从 stdin 读到这条消息，交给 McpServer
+McpServer 匹配到注册的 tool：open_postman
+执行回调函数：
+    exec('start "" "xxx/Postman.exe"') // 调用系统api打开软件
+回调 return { content: [{text:"打开成功"}] }
+McpServer 组装 MCP 响应报文
+    ↓
+响应报文通过 stdout 管道输出 → 流回父进程
+    ↓
+【父进程：Client】
+transport 读到 stdout 的返回结果，交给你 JS 代码拿到 res2
+```
+
+### 4. 和 HTTP MCP 的对比，帮你区分
+
+- HTTP Transport：Server 单独启动，监听端口；Client 通过 `POST /mcp` 网络请求发消息，走 TCP。
+
+- Stdio Transport：
+
+  Client 主动拉起 Server 作为自己的子进程
+
+  ，通信是进程间管道，不走网卡、不用端口。
+
+  - Server 生命周期跟着 Client：客户端关掉，一般子进程也会被回收
+  - 适合本地电脑能力：读本地文件、启动本地程序、访问本地资源（就是课件说的场景）
+
+### 5. 一个非常容易踩坑点（stdio MCP 经典坑）
+
+在 StdioServerTransport 模式里： `console.log()` 默认输出到 stdout！ 而 stdout 是 MCP 的协议通道！ 如果你随便 `console.log("日志")`，输出的文本会和 MCP JSON-RPC 消息混在一起 → 协议解析报错。
+
+ 想要打调试日志，要用 `console.error`（走 stderr，不占用协议通道）。
+
+ 你示例代码里写的 `console.log('Postman启动成功！')` 放在真实 stdio MCP 里其实是有隐患的，只是 demo 简化写了。
 
 
-# 
 
 # LLM大模型是不能联网的

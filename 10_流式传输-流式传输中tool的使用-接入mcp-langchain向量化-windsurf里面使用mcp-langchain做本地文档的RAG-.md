@@ -739,10 +739,20 @@ def read_pptx(file_path: str) -> str:
 ###  推荐做法：将所有文档的分片进行合并，统一写入一张大表
 *   **为什么这是黄金设计**：
     我们将所有的本地文档的分片合并进一个大数组（如上面的 `compactArr`），然后使用 `LanceDB.fromDocuments` **一次性全部写入同一张物理表（如 `table_knowledge_base`）中**。
-    1.  当用户提问时，直接对这张大表发起检索。它不仅能进行全局检索，还能天然支持**跨文档联合检索**（例如检索出前半部分在 Word 里，后半部分在 PPT 里）。
-    2.  因为我们在 `splitDocuments` 时，包装类会自动在返回的 Chunks 的 `metadata.source` 里注入当前分片的数据源文件路径。所以，当我们在大表中检索到最匹配的前几条数据时，我们**依然能通过读取检索结果中的 `metadata` 极其精确地知道这个分片文本究竟来自哪个原始文档**。这既保证了查询的聚合高效，又完整保留了来源的可追溯性！
+    1. 当用户提问时，直接对这张大表发起检索。它不仅能进行全局检索，还能天然支持**跨文档联合检索**（例如检索出前半部分在 Word 里，后半部分在 PPT 里）。
+    2. 因为我们在 `splitDocuments` 时，包装类会**自动**在返回的 Chunks 的 `metadata.source` 里注入当前分片的数据源文件路径。所以，当我们在大表中检索到最匹配的前几条数据时，我们**依然能通过读取检索结果中的 `metadata` 极其精确地知道这个分片文本究竟来自哪个原始文档**。这既保证了查询的聚合高效，又完整保留了来源的可追溯性！
 
+       - 问ai
+    
+       - 包装类会**自动**在返回的 Chunks 的 `metadata.source` 里注入当前分片的数据源文件路径
+         - 他是自动注入文件路径，而不是你把文件路径放入里面，比如写const pptContent = await new PPTXLoader("./file/pptfile.pptx").load();就会把./file/pptfile.pptx注入到metadata.source
+         - 不是所有 Loader 的 source 都一定是本地文件路径：
+           - 本地文件类 Loader（PPTXLoader / DocxLoader / PDFLoader）：source = 文件路径
+           - 网页 Loader、API Loader：source 会是网页 url
+         - 你依然可以**覆盖**它： 如果你不想要自动的路径，可以拿到 document 之后手动改写 `doc.metadata.source = "自定义标识"`，覆盖掉 Loader 自动注入的值。
+    
 *   **完整实现代码示例**：
+    
     ```javascript
     。。。。
     const pptContent = await new PPTXLoader("./file/pptfile.pptx").load();

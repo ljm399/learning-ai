@@ -4,24 +4,6 @@
 
 中文：**检索增强生成**
 
-
-## 0. 目标与整体流程
-
-RAG（Retrieval-Augmented Generation，检索增强生成）的核心思路：
-
-- **离线阶段（只做一次）**：把本地资料做成向量并存入向量库
-- **在线阶段（每次提问都做）**：把“问题”向量化并去向量库检索最相关的片段，然后把这些片段作为额外上下文交给大模型回答
-
-图片中的流程可以在本项目 `ppt和源码/2-5 RAG本地知识库/code/server` 找到一一对应：
-
-- **读取文档为字符串** -> `utils.js` 的 `readDocToText()` / `readFileToText()`
-- **切割文档内容（chunk）** -> `utils.js` 的 `splitDoc()`
-- **文本转向量并入向量数据库（只做一次）** -> `vectorLocalDoc.js` + `vector/index.js` + `vector/store.js`
-- **收到提问，找出相关文档** -> `utils.js` 的 `createRAGContext()` + `vector/index.js` 的 `textSearch()`
-- **把文档作为 system 上下文给到大模型** -> `utils.js` 的 `requestAI()`
-
-下面按“步骤 + 解释 + 代码”把整条链路补全。
-
 ## 1. 读取文档为字符串
 
 ### 步骤
@@ -277,6 +259,18 @@ export async function add(id, vector, originText) {
 文件：`code/server/vector/index.js`
 
 ```js
+export async function createVetor(text) {
+    const openai = new OpenAI({
+        baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        apiKey: "sk-..."
+    })
+    const result = await openai.embeddings.create({
+        model: "text-embedding-v4",
+        input: [text],
+        dimensions: 2048
+    })
+    return result.data[0].embedding
+}
 export async function textSearch(text) {
     const textVector = await createVetor(text)
     const searchResult = await search(textVector);
@@ -338,7 +332,7 @@ export async function createRAGContext(qtext) {
 
 ### 解释
 
-RAG 的关键不是“检索”，而是“把检索结果正确注入提示词”。
+RAG 的关键不是“检索”，而是“把检索结果**正确注入提示词**”。
 
 本项目的注入方式是：
 
@@ -479,7 +473,7 @@ app.post("/llm", async (req, res) => {
     "location":"居住地"
 }
 ```
-## 2. 生成用户特征（从历史对话 -> JSON 记忆）
+## 2. 生成用户特征（从历史对话 -> JSON 记忆）-- 这个项目里面没有实现自动化更新，手动node，要是之后项目需要，再写
 
 ### 步骤
 
@@ -677,7 +671,7 @@ export async function requestAI(opt) {
 2. 读取用户特征（`getUserMemoById(userId)`）
 3. 每次对话都把特征作为上下文给到 AI 接口（`{ role: "system", content: userMemo }`）
 
-## 4. 生成策略与范围
+## 4. 更新策略（即node 上面的agent.js,在2. 生成用户特征（从历史对话 -> JSON 记忆）里面）
 
 ### 步骤
 
@@ -737,85 +731,65 @@ MCP 的价值就在于：
 - **大家约定同一种协议/格式**
 - 客户端用统一方式做工具发现（`listTools`）与调用（`callTool`）
 
-## 0.1 MCP 和 HTTP 的关系
 
-图片里提到“mcp 说白了就是一个 http 服务”这句话更准确的理解是：
 
-- **MCP 是协议/约定**（规定请求与响应的结构、工具的描述方式等）
-- **HTTP 只是其中一种承载协议的 transport**
+### 解释mcp和Transport，以及@modelcontextprotocol/sdk的作用
 
-本 demo 选择的是 **stdio transport**，所以并不是 HTTP 接口；但如果换成 HTTP transport，那你就会看到“像一个 HTTP 服务”的形态。
+> 一句话总纲：**MCP 是应用层协议；HTTP / SSE /stdio 只是传输层（transport），负责把 MCP 的 JSON-RPC 消息传过去**。 “MCP 说白了就是一个 http 服务” 是简化口语，严格来说是错的，只有当你选用 HTTP 系列 transport 时，它才表现成 HTTP 服务。
 
-对应图片里的要点：
+#### 1. 层级关系
 
-- 需要用库：`@modelcontextprotocol/sdk`
-- 需要同时做 **MCP Server** 与 **MCP Client**
-
-### 代码（依赖）
-
-文件：`ppt和源码/2-7 MCP协议/code/mcpdemo/package.json`
-
-```json
-"dependencies": {
-  "@modelcontextprotocol/sdk": "^1.27.1",
-  "cors": "^2.8.6",
-  "express": "^5.2.1"
-}
+```
+MCP 协议（JSON-RPC 消息规范：initialize、tools/list、tools/call……）
+        ↓
+Transport（传输通道，三选一）
+  ├─ stdio：进程 stdin/stdout，无网络、无端口
+  ├─ Streamable HTTP：HTTP 长连接新规范（MCP 官方主推）
+  └─ SSE：老流式方案（SSE 单向读 + POST 单独发消息）
 ```
 
-## 1. SDK 和 HTTP 的关系
+`@modelcontextprotocol/sdk` 的作用：**帮你封装 MCP 协议消息，同时提供不同 transport 的实现类，不用自己手写 JSON-RPC 编解码**。 SDK 不绑定 HTTP，transport 是可插拔的。
 
-### 步骤
+#### 2. stdio transport（你当前 demo 用的）
 
-1. 使用 `@modelcontextprotocol/sdk` 创建 server/client
-2. 选择一种 transport（传输方式）把 server 和 client 连起来
+模型：Client 作为父进程，spawn 子进程启动 MCP Server；消息走管道 stdin/stdout。 ✅ 优点
 
-### 解释
+- 不用监听端口、不用处理 CORS、TLS、鉴权
+- 本地桌面 / IDE 集成最主流（Cursor、Claude Desktop 都是这种方式）
+- 权限边界天然：server 和 client 是同一个用户身份 ❌ 局限
+- 只能本机调用，不能跨机器共享
+- 每一个 client 连接，通常拉起一个独立 server 进程（多客户端没法复用服务实例）
 
-MCP SDK 提供的是 **协议实现 + 多种 transport**。
+> 对应你 demo：启动 server 是跑命令，client 执行 `spawn` 拉起这个命令通信，**没有任何 HTTP 端口**。
 
-- transport 可以是 stdio、HTTP、SSE 等（具体看你使用的 transport 类）。
-- **SDK 本身不等于“自动给你起一个 HTTP 服务”**。
+#### 3. SSE transport（旧流式方案）
 
-在本项目 `mcpdemo` 中，使用的是 **stdio transport**（也就是通过进程 stdin/stdout 传输）。
+经典两段式：
 
-这意味着：
+1. Client 发起 GET 请求建立 SSE 长连接 → Server 返回 sessionId；SSE 通道**只能服务器往客户端推消息**（单向）
+2. Client 要发请求（调用工具），走单独的 POST HTTP 接口带上 sessionId 特点：SSE 本身单向，所以需要两条通路，实现比较繁琐，属于早期方案。
 
-- 你运行的是一个本地可执行的 MCP server（CLI）
-- MCP client 通过启动这个命令来建立连接
+#### 4. Streamable HTTP（MCP 新标准，推荐网络场景）
 
-## 1.1 transport 方案补充：streamable http vs SSE
+统一入口（比如 `/mcp`），**同一个 HTTP 端点同时承载双向消息**：
 
-### 步骤
+- 可以短请求
+- 也可以升级成长连接流式传输 不再需要 SSE 那种 “单独 POST + SSE 接收” 两套接口，是官方现在主推的网络 transport。
 
-1. 选定 transport（stdio / streamable http / SSE 等）
-2. 用对应 transport 的“握手方式”建立连接
-3. 在同一连接上完成后续工具调用
+表格
 
-### 解释
+| Transport       | 网络        | 多客户端共享         | 适用场景                                   |
+| --------------- | ----------- | -------------------- | ------------------------------------------ |
+| stdio           | ❌ 无端口    | ❌ 一般一客户端一进程 | 本地 IDE、桌面客户端、本机工具             |
+| SSE             | ✅ HTTP 网络 | ✅ 可共享服务         | 历史存量实现，新项目不优先选               |
+| Streamable HTTP | ✅ HTTP 网络 | ✅ 可共享服务         | 跨机器、容器、服务化部署，网关、鉴权、观测 |
 
-#### 为什么本项目选择 stdio transport
+#### 5. 容易踩的误区
 
-- **零网络成本**：不需要起 HTTP 服务/开端口，也不需要处理 CORS、代理、TLS、端口占用等问题。
-- **更贴近“本地工具”模型**：本 demo 的 tool 会调用本机能力（例如 `exec()` 打开本地 Postman）。这种能力本质上依赖操作系统权限，使用 stdio 时通常只暴露给“启动该 server 的本机 client 进程”，安全边界更清晰。
-- **进程模型更常见**：很多 MCP client（IDE/桌面应用）会以“拉起一个 server 子进程 + stdin/stdout 通信”的方式集成工具，这与 stdio transport 的设计一致。
-
-#### 何时用  SSE / streamable http（什么时候不该用 stdio）
-
-- **跨机器/跨容器部署**：server 不在本机运行（内网服务、容器、K8s），client 需要通过网络访问时，用 HTTP 类 transport 更自然。
-- **多客户端共享同一套工具服务**：希望多个 client 复用同一个 MCP server（统一工具平台/网关），HTTP/SSE 更方便做连接管理与统一入口。
-- **需要接入网关与可观测能力**：鉴权、审计、限流、灰度、负载均衡、指标与日志等，HTTP 生态更成熟。
-
-#### streamable http vs SSE 的选择建议
-
-- **streamable http**：较新的方案，倾向于“建立长连接后，后续调用都走同一个接口”（你图里示意为 `/api` 这样的统一入口）。
-- **SSE**：更早期/更常见的一类方案，通常会先建立 SSE 长连接（返回一个 endpoint / session 信息），后续再用这个 endpoint 去拿流式结果。
-  - SSE是单向的，即客户端不能发送数据给服务器，而是客户端会通过普通的http发送数据给后端，后面 笔记4 里面有详细解释
-
-
-但需要注意：
-
-- **本项目 `mcpdemo` 没有实现 streamable http/SSE 的服务端代码**，仅演示了 stdio。
+1. ❌ MCP = HTTP 接口 ✅ MCP 是协议；HTTP 只是可选传输。stdio MCP 完全不是 HTTP。
+2. ❌ `@modelcontextprotocol/sdk` 就是 express 服务 ✅ SDK 和 express 无关；express 只是你如果要做 Streamable HTTP 服务时，用来搭 Web 服务的底层 Web 框架，SDK 可以配到 express 路由上。
+3. ❌ SSE 是双向通信 ✅ SSE 原生只能服务端推；客户端发消息必须额外 POST。
+4. ❌ 换成 Streamable HTTP 之后，MCP 协议本身变了 ✅ **MCP 的消息结构（initialize、tools/call 等载荷完全不变），只是消息跑的通道换了**。这就是 transport 插拔的含义。
 
 
 

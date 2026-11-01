@@ -21,7 +21,7 @@ LLM：Large Language Model（大语言模型）。
 
     
 
-- 调用大模型（这里拿阿里云那个，因为有免费token，之后你想要国外的可以去找怎么拿到api）
+- 调用大模型
 
   - http
     - http 是无状态的，所以入参要把“本次生成所需的信息”带齐（例如 `model`、`messages`、鉴权信息、生成参数等）
@@ -219,43 +219,70 @@ LLM：Large Language Model（大语言模型）。
           推荐两种使用方式。
 
           方式一：安装并在入口文件加载：
-        
+    
           ```
           npm install dotenv
           ```
-        
+    
           在 `app.js` 最顶部：
-        
+    
           ```
           import "dotenv/config";
           ```
-        
+    
           然后：
-        
+    
           ```
           const apiKey = process.env.DEEPSEEK_API_KEY;
           ```
-        
+    
           `.env`：
-        
+    
           ```
           DEEPSEEK_API_KEY=你的密钥
           ```
-        
+    
           方式二：Node.js 20.6+ 直接启动：
-        
+    
           ```
           node --env-file=.env app.js
           ```
-        
+    
           这种方式不需要安装或导入 `dotenv`。
-        
+    
           注意：`dotenv` 必须在读取 `process.env.DEEPSEEK_API_KEY` 之前加载。
-        
+    
         - 注意：`.env` 通常要加入 `.gitignore`，避免把 key 提交到仓库
       - 系统级环境变量（长期生效）
         - 在系统环境变量里新增 `DASHSCOPE_API_KEY`
         - 修改后需要重开终端/IDE 才能生效
+    
+    - 方式三：设置config.js
+    
+      - 里面设置好apikey，baseUrl那些，如何导出，需要的文件导入就行
+    
+        ```
+        export default {
+            // API_URL: "https://www.micuapi.ai/v1",
+            // model: "gpt-6.1-sol",
+            API_URL: "https://api.deepseek.com",
+            model: "deepseek-v4-flash",
+            API_KEY: process.env.API_KEY
+        }
+        ```
+    
+        - 导入
+    
+          ```
+          import config from '../config.js';
+          const openai = new OpenAI({
+            baseURL: config.API_URL,
+            apiKey: config.API_KEY,
+            dangerouslyAllowBrowser: true
+          });
+          ```
+    
+          
   
 - 代码
   - 最小可用示例（对应 `ppt和源码/1-2 搭建服务部分/code/server/index.js` 的核心逻辑）
@@ -713,13 +740,15 @@ LLM：Large Language Model（大语言模型）。
 
 - 常见节省 token 的做法（优先级从简单到复杂）
   - **限制输出长度**
+    
     - 在输出要求里明确：只给代码/只给结论/分点简答
     - 设置 `max_tokens`（或厂商等价参数）控制最长输出
-  
+    
   - **只携带必要上下文**
+    
     - 不要把“整个知识库/整份文档/整段代码”无脑塞给模型
     - 只拼接与本次问题强相关的片段（这也是后面 RAG 的核心思想：先检索，再喂给模型）
-  
+    
   - **限制对话记录最大长度（超过就截断）**
   
     - 设一个 `messages` 最大条数/最大字符数/最大 token 数
@@ -731,9 +760,10 @@ LLM：Large Language Model（大语言模型）。
     - 用“摘要 + 最近 N 轮”替代“完整历史”，降低 `prompt_tokens` 同时尽量保留关键信息
   
   - **向量召回/检索补上下文**
+    
     - 对超长上下文，用“检索命中片段 + 少量历史”替代“全量历史”
     - 这里先记住思路即可（后面学 RAG/向量检索会细讲；不是所有场景都推荐上来就用）
-  
+    
   - 案例
   
     ```js

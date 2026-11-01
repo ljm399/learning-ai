@@ -33,7 +33,7 @@ LangGraph 允许我们**开岔路**并**回到上一步**。它抛弃了传统�
 @c:/Users/MJL/Desktop/ai学习/ppt和源码/5-11 langGraph的使用/code/demo1.js:4-15
 //1，自定义数据处理策略
 const MyState = Annotation.Root({
-    //定义好有哪些属性，没定义的，及时返回也拿不到
+    //定义好有哪些属性，没定义的，即使返回也拿不到
     messages: Annotation({
         //每一个节点的，message属性，都会经过reducer方法的处理才给到下一个节点
         reducer: (x, y) => {
@@ -149,6 +149,8 @@ LangGraph 解决传统链不能分支、不能循环的问题。
 4. 用 **addEdge** 连接固定流程，**addConditionalEdges** 做条件判断。
 5. **compile** 编译。
 6. **invoke** 运行，传入 state 和 config。
+
+
 
 ---
 
